@@ -1,0 +1,6 @@
+
+# This is a makefile for building the quickboot_builder.exe windows binary
+# under Linux using cross compilers. This requires the w64-mingw32 packages.
+
+quickboot_builder.exe: quickboot_builder.cc
+	i686-w64-mingw32-g++ -O -g -std=c++11 -Wall -o quickboot_builder.exe quickboot_builder.cc
