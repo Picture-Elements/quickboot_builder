@@ -236,7 +236,7 @@ int main(int argc, char*argv[])
 	    if (spi_gen) {
 		  flash_sector = 4096;
 	    } else if (bpi16_gen) {
-		  flash_sector = 32768;
+		  flash_sector = 256*1024;
 	    }
       }
 
@@ -313,7 +313,7 @@ int main(int argc, char*argv[])
       }
 
       fprintf(stdout, "MULTIBOOT Address: 0x%08zx\n", multiboot_offset);
-      fprintf(stdout, "PROM Page Size: %zu bytes\n", flash_sector);
+      fprintf(stdout, "PROM erase block Size: %zu bytes\n", flash_sector);
 
 	// To simulate failing to program a segment of the prom, erase
 	// some random sector in the silver image.
