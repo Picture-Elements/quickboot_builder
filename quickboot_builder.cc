@@ -106,7 +106,6 @@
 using namespace std;
 
 static size_t flash_sector  = 0;
-static const size_t QUICKBOOT_SPACE = 64;
 
 static bool disable_silver = false;
 
@@ -304,11 +303,11 @@ int main(int argc, char*argv[])
       }
 
 
-      if ((vec_gold.size() + flash_sector + QUICKBOOT_SPACE) > multiboot_offset) {
+      if ((vec_gold.size() + flash_sector + flash_sector) > multiboot_offset) {
 	    fprintf(stderr, "Unable to fit gold bits into region.\n");
 	    fprintf(stderr, "Gold file is %zu bytes\n", vec_gold.size());
 	    fprintf(stderr, "MULTIBOOT byte address is 0x%08zx\n", multiboot_offset);
-	    fprintf(stderr, "Quickboot header is %zu bytes\n", flash_sector + QUICKBOOT_SPACE);
+	    fprintf(stderr, "Quickboot header is %zu bytes\n", flash_sector + flash_sector);
 	    return -1;
       }
 
@@ -334,9 +333,13 @@ int main(int argc, char*argv[])
       memset(&vec_out[0], 0xff, vec_out.size());
 
 	/* Write the gold file into the stream. */
-      memcpy(&vec_out[flash_sector+QUICKBOOT_SPACE], &vec_gold[0], vec_gold.size());
+      fprintf(stdout, "Write GOLD image at byte address 0x%08zx\n",
+	      flash_sector+flash_sector);
+      memcpy(&vec_out[flash_sector+flash_sector], &vec_gold[0], vec_gold.size());
 
 	/* Write the silver file into the stream. */
+      fprintf(stdout, "Write SILVER image at byte address 0x%08zx\n",
+	      multiboot_offset);
       memcpy(&vec_out[multiboot_offset], &vec_silver[0], vec_silver.size());
 
 	/* Generate a quickboot header for the type of flash that we
@@ -499,7 +502,7 @@ static void spi_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, siz
       dst[sector+18] = 0x00;
       dst[sector+19] = 0x0f; /* ... IPROG command */
 	/* Fill the reset of the second sector with NOOP commands */
-      for (size_t idx = 20 ; idx < QUICKBOOT_SPACE ; idx += 4) {
+      for (size_t idx = 20 ; idx < sector ; idx += 4) {
 	    dst[sector+idx+0] = 0x20;
 	    dst[sector+idx+1] = 0x00;
 	    dst[sector+idx+2] = 0x00;
@@ -510,7 +513,7 @@ static void spi_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, siz
 static void bpi16_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, uint32_t WBSTAR, size_t sector)
 {
       fprintf(stdout, "Quickboot BPI header\n");
-      fprintf(stdout, "Critical Switch word is 00:00:00:bb at 0x%08zx (page 0)\n", sector-4);
+      fprintf(stdout, "Critical Switch word is 00:00:00:bb 11:22:00:44 aa:99:44:66 at 0x%08zx (page 0)\n", sector-12);
 
 	// If we got the multiboot address from the command line
 	// instead of from the gold file, then generate a new WBSTAR value.
@@ -526,35 +529,54 @@ static void bpi16_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, u
 
       memset(&dst[0], 0xff, sector-4);
 
+	// BPI16 devices don't have a simple single word that is a
+	// critical sync word, so use these 3 words in the critical
+	// sync flash.
       if (disable_silver) {
 	      // If the silver is disabled, then leave the critical
 	      // switch word out.
-	    dst[sector-4] = 0xff;
-	    dst[sector-3] = 0xff;
-	    dst[sector-2] = 0xff;
-	    dst[sector-1] = 0xff;
+	    dst[sector-12] = 0xff;
+	    dst[sector-11] = 0xff;
+	    dst[sector-10] = 0xff;
+	    dst[sector- 9] = 0xff;
+	    dst[sector- 8] = 0xff;
+	    dst[sector- 7] = 0xff;
+	    dst[sector- 6] = 0xff;
+	    dst[sector- 5] = 0xff;
+	    dst[sector- 4] = 0xff;
+	    dst[sector- 3] = 0xff;
+	    dst[sector- 2] = 0xff;
+	    dst[sector- 1] = 0xff;
       } else {
-	    dst[sector- 4] = 0x00; /* Critical Switch word word */
-	    dst[sector- 3] = 0x00;
-	    dst[sector- 2] = 0x00;
-	    dst[sector- 1] = 0xbb;
+	    dst[sector-12] = 0x00; /* Critical Switch word word */
+	    dst[sector-11] = 0x00;
+	    dst[sector-10] = 0x00;
+	    dst[sector- 9] = 0xbb;
+	    dst[sector- 8] = 0x11; /* bus width detect */
+	    dst[sector- 7] = 0x22;
+	    dst[sector- 6] = 0x00;
+	    dst[sector- 5] = 0x44;
+	    dst[sector- 4] = 0xaa; /* Sync word */
+	    dst[sector- 3] = 0x99;
+	    dst[sector- 2] = 0x55;
+	    dst[sector- 1] = 0x66;
       }
-      dst[sector+ 0] = 0x11; /* bus width detect */
-      dst[sector+ 1] = 0x22;
+      dst[sector+ 0] = 0x20; /* NOOP */
+      dst[sector+ 1] = 0x00;
       dst[sector+ 2] = 0x00;
-      dst[sector+ 3] = 0x44;
-      dst[sector+ 4] = 0xff;
-      dst[sector+ 5] = 0xff;
-      dst[sector+ 6] = 0xff;
-      dst[sector+ 7] = 0xff;
-      dst[sector+ 8] = 0xff;
-      dst[sector+ 9] = 0xff;
-      dst[sector+10] = 0xff;
-      dst[sector+11] = 0xff;
-      dst[sector+12] = 0xaa; /* Sync word */
-      dst[sector+13] = 0x99;
-      dst[sector+14] = 0x55;
-      dst[sector+15] = 0x66;
+      dst[sector+ 3] = 0x00;
+      dst[sector+ 4] = 0x20; /* NOOP */
+      dst[sector+ 5] = 0x00;
+      dst[sector+ 6] = 0x00;
+      dst[sector+ 7] = 0x00;
+      dst[sector+ 8] = 0x20; /* NOOP */
+      dst[sector+ 9] = 0x00;
+      dst[sector+10] = 0x00;
+      dst[sector+11] = 0x00;
+      dst[sector+12] = 0x20; /* NOOP */
+      dst[sector+13] = 0x00;
+      dst[sector+14] = 0x00;
+      dst[sector+15] = 0x00;
       dst[sector+16] = 0x20; /* NOOP */
       dst[sector+17] = 0x00;
       dst[sector+18] = 0x00;
@@ -577,7 +599,7 @@ static void bpi16_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, u
       dst[sector+35] = 0x0f; /* ... IPROG command */
 
 	/* Fill the reset of the second sector with NOOP commands */
-      for (size_t idx = 36 ; idx < QUICKBOOT_SPACE ; idx += 4) {
+      for (size_t idx = 36 ; idx < sector ; idx += 4) {
 	    dst[sector+idx+0] = 0x20;
 	    dst[sector+idx+1] = 0x00;
 	    dst[sector+idx+2] = 0x00;
