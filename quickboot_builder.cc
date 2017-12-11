@@ -527,7 +527,7 @@ static void bpi16_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, u
 	    WBSTAR |= (mb_offset & 0x00ffffff) / 2;
       }
 
-      memset(&dst[0], 0xff, sector-4);
+      memset(&dst[0], 0xff, sector);
 
 	// BPI16 devices don't have a simple single word that is a
 	// critical sync word, so use these 3 words in the critical
