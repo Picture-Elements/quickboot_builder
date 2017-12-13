@@ -96,6 +96,10 @@
  *        image.
  */
 
+
+# include  "read_bit_file.h"
+# include  "extract_register_write.h"
+# include  "replace_register_write.h"
 # include  <vector>
 # include  <cstdint>
 # include  <cstdio>
@@ -109,55 +113,16 @@ static size_t flash_sector  = 0;
 
 static bool disable_silver = false;
 
-
+static bool test_basic_image_compatibility(const std::vector<uint8_t>&vec);
 static bool test_gold_image_compatible(const std::vector<uint8_t>&vec);
-static uint32_t extract_multiboot_address(std::vector<uint8_t>&vec, bool bpi16_gen, uint32_t&WBSTAR);
+static bool test_silver_image_compatible(const std::vector<uint8_t>&vec);
+
+static bool disable_stream_crc(std::vector<uint8_t>&vec);
+
 static void spi_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, size_t sector);
-static void bpi16_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, uint32_t WBSTAR, size_t sector);
+static void bpi16_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, size_t sector);
 static void bpi16_fixup_endian(std::vector<uint8_t>&dst);
 static void write_to_mcs_file(FILE*fd, const std::vector<uint8_t>&vec);
-
-/*
- * Read a bit file into the dst vector, and strip the header details
- * off. The result is a vector that starts at the mark (0xffffffff)
- * bytes.
- */
-static void read_bit_file(vector<uint8_t>&dst, FILE*fd)
-{
-      fseek(fd, 0, SEEK_END);
-      size_t file_size = ftell(fd);
-      assert(file_size > 0);
-
-      dst.resize(file_size);
-
-      fseek(fd, 0, SEEK_SET);
-      size_t rc = fread(&dst[0], 1, file_size, fd);
-      if (rc != file_size) {
-	    fprintf(stderr, "Unable to read bit file bytes\n");
-	    dst.clear();
-	    return;
-      }
-
-	/* Look for 0xff bytes that indicate the end of the header. */
-
-      rc = 0;
-      while (rc < dst.size() && dst[rc] != 0xff) {
-	    rc += 1;
-      }
-
-      if (rc == dst.size()) {
-	    fprintf(stderr, "Unable to find end of header in bit file.\n");
-	    dst.clear();
-	    return;
-      }
-
-	/* Strip the header off of the bit file. The dst vector now
-	   contains the bit stream, ready to insert. */
-      if (rc > 0) {
-	    memmove(&dst[0], &dst[rc], dst.size()-rc);
-	    dst.resize(dst.size()-rc);
-      }
-}
 
 int main(int argc, char*argv[])
 {
@@ -219,15 +184,17 @@ int main(int argc, char*argv[])
 	    return -1;
       }
 
-      if (path_gold == 0) {
-	    fprintf(stderr, "No gold file? Please specify --gold=<path>\n");
+      if (path_silver == 0) {
+	    fprintf(stderr, "No silver file file? Please specify --silver=<path>\n");
 	    return -1;
       }
 
-      if (path_silver == 0) {
-	    fprintf(stderr, "No silver file? Please specify --silver=<path>\n");
-	    return -1;
+      if (path_gold == 0) {
+	    assert(path_silver);
+	    path_gold = path_silver;
+	    fprintf(stderr, "No gold file, using silver file.\n");
       }
+
 
 	// If the flash sector size is not otherwise specified, then
 	// choose a default based on the targeted flash device.
@@ -239,8 +206,8 @@ int main(int argc, char*argv[])
 	    }
       }
 
-	/* Read the gold file, strip any header, and get it ready to
-	   be included in the result file. */
+	// Read the gold file, strip any header, and get it ready to
+	// be included in the result file.
       FILE*fd_gold = fopen(path_gold, "rb");
       if (fd_gold == 0) {
 	    fprintf(stderr, "Unable to open gold file: %s\n", path_gold);
@@ -257,12 +224,14 @@ int main(int argc, char*argv[])
       fclose(fd_gold);
       fd_gold = 0;
 
-      if (! test_gold_image_compatible(vec_gold)) {
+	// If the gold file is not going to be a copy of the silver
+	// file, then check that it is compatible with this process.
+      if (path_gold != path_silver && !test_gold_image_compatible(vec_gold)) {
 	    fprintf(stderr, "Gold file %s not compatible with Quickboot assembly.\n", path_gold);
 	    return -1;
       }
 
-	/* Read the silver file, strip any header, and be ready. */
+	// Read the silver file, strip any header, and be ready.
       FILE*fd_silver = fopen(path_silver, "rb");
       if (fd_silver == 0) {
 	    fprintf(stderr, "Unable to open silver file: %s\n", path_silver);
@@ -279,16 +248,17 @@ int main(int argc, char*argv[])
       fclose(fd_silver);
       fd_silver = 0;
 
-      uint32_t WBSTAR = 0;
-      size_t use_multiboot = extract_multiboot_address(vec_gold, bpi16_gen, WBSTAR);
-      fprintf(stdout, "Extracted WBSTAR register value: 0x%08x\n", WBSTAR);
-      fprintf(stdout, "Extracted multiboot BYTE address: 0x%08zX\n", use_multiboot);
-      if (multiboot_offset == 0) {
-	    multiboot_offset = use_multiboot;
-      } else {
-	      // If we get the address from the command line, then we
-	      // will be generating a new WBSTAR address later.
-	    WBSTAR = 0;
+      if (! test_silver_image_compatible(vec_silver)) {
+	    fprintf(stderr, "Silver file %s not compatible with Quickboot assembly.\n", path_silver);
+	    return -1;
+      }
+
+	/* Guess a multiboot address based on the target device we are
+	   generating for. Let the command line override this guess. */
+      if (multiboot_offset == 0 && bpi16_gen) {
+	    multiboot_offset = 0x01000000;
+      } else if (multiboot_offset == 0 && spi_gen) {
+	    multiboot_offset = 0x00400000;
       }
 
       if (multiboot_offset == 0) {
@@ -313,6 +283,16 @@ int main(int argc, char*argv[])
 
       fprintf(stdout, "MULTIBOOT Address: 0x%08zx\n", multiboot_offset);
       fprintf(stdout, "PROM erase block Size: %zu bytes\n", flash_sector);
+
+	// MAke sure the gold stream has a gold magic number.
+      uint32_t AXSS = replace_register_write(vec_gold, 0xd, 0x474f4c44);
+      fprintf(stdout, "AXSS (gold): 0x474f4c44 (was: 0x%08x)\n", AXSS);
+
+      if (AXSS != 0x474f4c44) {
+	    while (disable_stream_crc(vec_gold)) {
+		    /* repeat */
+	    }
+      }
 
 	// To simulate failing to program a segment of the prom, erase
 	// some random sector in the silver image.
@@ -349,7 +329,7 @@ int main(int argc, char*argv[])
 	    spi_quickboot_header(vec_out, multiboot_offset, flash_sector);
 
       } else if (bpi16_gen) {
-	    bpi16_quickboot_header(vec_out, multiboot_offset, WBSTAR, flash_sector);
+	    bpi16_quickboot_header(vec_out, multiboot_offset, flash_sector);
 	    bpi16_fixup_endian(vec_out);
       }
 
@@ -370,7 +350,7 @@ int main(int argc, char*argv[])
       return 0;
 }
 
-static bool test_gold_image_compatible(const std::vector<uint8_t>&vec)
+static bool test_basic_image_compatibility(const std::vector<uint8_t>&vec)
 {
       const uint8_t magic_sync[4] = {0xaa, 0x99, 0x55, 0x66};
       size_t match = 0;
@@ -386,7 +366,7 @@ static bool test_gold_image_compatible(const std::vector<uint8_t>&vec)
       }
 
       if (match < 4) {
-	    fprintf(stderr, "Unable to find sync word in gold file.\n");
+	    fprintf(stderr, "Unable to find sync word in bit file.\n");
 	    return false;
       }
 
@@ -408,59 +388,78 @@ static bool test_gold_image_compatible(const std::vector<uint8_t>&vec)
 	    return true;
       }
 
-      fprintf(stderr, "Found IPROG command in gold stream.\n");
+      fprintf(stderr, "Found IPROG command in bit stream.\n");
 
       return false;
 }
 
-/*
- * Extract the multiboot address from a bit stream by searching for
- * the WRITE to WBSTAR early in the bit stream. If I find it, only the
- * low 24bits are useful so mask the high bits. If I do not find it,
- * then return 0.
- */
-static uint32_t extract_multiboot_address(std::vector<uint8_t>&vec, bool bpi16_gen, uint32_t&WBSTAR)
+static bool test_gold_image_compatible(const std::vector<uint8_t>&vec)
 {
-      const uint8_t magic[4] = {0x30, 0x02, 0x00, 0x01};
-      size_t match = 0;
-      size_t ptr = 0;
+      if (!test_basic_image_compatibility(vec)) {
+	    fprintf(stderr, "Gold image fails basic tests.\n");
+	    return false;
+      }
 
-      while (ptr < 0x100 && match < 4) {
+      uint32_t AXSS = extract_register_write(vec, 0x0d);
+      if (AXSS != 0x474f4c44) {
+	    fprintf(stderr, "Found AXSS=0x%08x\n (s/b 0x474f4c44)\n", AXSS);
+	    return false;
+      }
+
+      return true;
+}
+
+static bool test_silver_image_compatible(const std::vector<uint8_t>&vec)
+{
+      if (!test_basic_image_compatibility(vec)) {
+	    fprintf(stderr, "Silver image fails basic tests.\n");
+	    return false;
+      }
+
+
+      uint32_t AXSS = extract_register_write(vec, 0x0d);
+      if (AXSS != 0x53494c56) {
+	    fprintf(stderr, "Found AXSS=0x%08x\n (s/b 0x53494c56)\n", AXSS);
+	    return false;
+      }
+
+      return true;
+}
+
+static bool disable_stream_crc(std::vector<uint8_t>&vec)
+{
+      size_t ptr = vec.size();
+      const size_t base = ptr - 3192;
+
+      const uint8_t magic[4] = {0x30, 0x00, 0x00, 0x01};
+      size_t match = 0;
+
+      ptr -= 4;
+      while (ptr>base && match<4) {
 	    if (vec[ptr+match] == magic[match]) {
 		  match += 1;
-	    } else {
-		  ptr += 1;
-		  match = 0;
+		  continue;
 	    }
+
+	    match = 0;
+	    ptr -= 4;
       }
 
       if (match < 4)
-	    return 0;
+	    return false;
 
-      ptr += match;
+      assert(ptr+8 <= vec.size());
 
-	// Get the WBSTAR value
-      uint32_t wbstar = vec[ptr+0];
-      wbstar <<= 8;
-      wbstar |= vec[ptr+1];
-      wbstar <<= 8;
-      wbstar |= vec[ptr+2];
-      wbstar <<= 8;
-      wbstar |= vec[ptr+3];
-
-      uint32_t res = 0;
-      if (bpi16_gen) {
-	    if (wbstar & 0x40000000) /* RS[0]? */
-		  res |= 0x00800000;
-	    res |= 2*(wbstar & 0x003fffff);
-
-      } else {
-	      // For SPI devices, only use the low address bits
-	    res = wbstar & 0x00ffffff;
-      }
-
-      WBSTAR = wbstar;
-      return res;
+	// Replace the CRC code with the Reset CRC command.
+      vec[ptr+0] = 0x30;
+      vec[ptr+1] = 0x00;
+      vec[ptr+2] = 0x80;
+      vec[ptr+3] = 0x01;
+      vec[ptr+4] = 0x00;
+      vec[ptr+5] = 0x00;
+      vec[ptr+6] = 0x00;
+      vec[ptr+7] = 0x07;
+      return true;
 }
 
 static void spi_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, size_t sector)
@@ -510,22 +509,20 @@ static void spi_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, siz
       }
 }
 
-static void bpi16_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, uint32_t WBSTAR, size_t sector)
+static void bpi16_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, size_t sector)
 {
       fprintf(stdout, "Quickboot BPI header\n");
       fprintf(stdout, "Critical Switch word is 00:00:00:bb 11:22:00:44 aa:99:44:66 at 0x%08zx (page 0)\n", sector-12);
 
 	// If we got the multiboot address from the command line
 	// instead of from the gold file, then generate a new WBSTAR value.
-      if (WBSTAR == 0) {
-	      // In the quickboot header for a BPI16 device, we use RS[0]
-	      // instead of any other multiboot bits.
+      uint32_t WBSTAR = 0;
+	// In the quickboot header for a BPI16 device, we use RS[0]
+	// instead of any other multiboot bits.
 
-	    if (mb_offset & 0x01000000)
-		  WBSTAR |= 0x60000000; /* RS[0],RS_TS_B */
-
-	    WBSTAR |= (mb_offset & 0x00ffffff) / 2;
-      }
+      if (mb_offset & 0x01000000)
+	    WBSTAR |= 0x60000000; /* RS[0],RS_TS_B */
+      WBSTAR |= (mb_offset & 0x00ffffff) / 2;
 
       memset(&dst[0], 0xff, sector);
 

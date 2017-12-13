@@ -1,4 +1,5 @@
 
 *~
+*.o
 *.mcs
 quickboot_builder
