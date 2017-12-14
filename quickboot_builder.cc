@@ -163,6 +163,9 @@ int main(int argc, char*argv[])
 	    } else if (strcmp(argv[optarg],"--debug-trash-silver") == 0) {
 		  debug_trash_silver = true;
 
+	    } else if (strncmp(argv[optarg],"--flash-sector=",15) == 0) {
+		  flash_sector = strtoul(argv[optarg]+15, 0, 0);
+
 	    } else {
 		  fprintf(stderr, "Unknown flag: %s\n", argv[optarg]);
 		  return -1;
@@ -256,7 +259,7 @@ int main(int argc, char*argv[])
 	/* Guess a multiboot address based on the target device we are
 	   generating for. Let the command line override this guess. */
       if (multiboot_offset == 0 && bpi16_gen) {
-	    multiboot_offset = 0x01000000;
+	    multiboot_offset = 0x00800000;
       } else if (multiboot_offset == 0 && spi_gen) {
 	    multiboot_offset = 0x00400000;
       }
@@ -288,10 +291,19 @@ int main(int argc, char*argv[])
       uint32_t AXSS = replace_register_write(vec_gold, 0xd, 0x474f4c44);
       fprintf(stdout, "AXSS (gold): 0x474f4c44 (was: 0x%08x)\n", AXSS);
 
-      if (AXSS != 0x474f4c44) {
-	    while (disable_stream_crc(vec_gold)) {
-		    /* repeat */
-	    }
+      if (bpi16_gen) {
+	      //uint32_t WBSTAR = replace_register_write(vec_gold, 0x10, 0x20000000);
+	      //fprintf(stdout, "WBSTAR (gold): 0x20000000 (was: 0x%08x)\n", WBSTAR);
+
+	    uint32_t COR0 = replace_register_write(vec_gold, 0x09, 0x062055dc);
+	    fprintf(stdout, "COR0 (gold): 0x062055dc (was: 0x%08x)\n", COR0);
+
+	    uint32_t COR1 = replace_register_write(vec_gold, 0x0e, 0x0000000a);
+	    fprintf(stdout, "COR1 (gold): 0x0000000a (was: 0x%08x)\n", COR1);
+      }
+
+      while (disable_stream_crc(vec_gold)) {
+	/* repeat */
       }
 
 	// To simulate failing to program a segment of the prom, erase
@@ -520,9 +532,16 @@ static void bpi16_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, s
 	// In the quickboot header for a BPI16 device, we use RS[0]
 	// instead of any other multiboot bits.
 
-      if (mb_offset & 0x01000000)
+	// RS[0] connects to A[23] on the flash. So transfer that
+	// address bit to the RS[] part of WBSTAR
+      if (mb_offset & 0x00800000)
 	    WBSTAR |= 0x60000000; /* RS[0],RS_TS_B */
+      else
+	    WBSTAR |= 0x20000000; /* RS_TS_B */
+
       WBSTAR |= (mb_offset & 0x00ffffff) / 2;
+
+      fprintf(stdout, "WBSTAR (quickboot header): 0x%08x\n", WBSTAR);
 
       memset(&dst[0], 0xff, sector);
 
@@ -667,6 +686,8 @@ static void write_to_mcs_file(FILE*fd, const std::vector<uint8_t>&vec)
 
 	    address += addr2;
       }
+
+      fprintf(stdout, "MCS target device size >= 0x%08zx\n", address);
 
 	/* EOF Marker */
       fprintf(fd, ":00000001FF\n");

@@ -21,9 +21,21 @@ silver file.
 
 To make mcs fies for ICB2F boards, use the command line:
 
-$ ./quickboot_builder --output=ICB2F_qbN_MMM.mcs --gold=ICB2F_qbgoldN_MMM.bit --silver=ICB2F_silverN_MMM.bit --bpi16
+$ ./quickboot_builder --output=ICB2F_qbN_MMM.mcs --silver=ICB2F_silverN_MMM.bit --bpi16
+No gold file, using silver file.
+Reading gold file: ICB2F_silver4_441.bit
+Reading silver file: ICB2F_silver4_441.bit
+MULTIBOOT Address: 0x00800000
+PROM erase block Size: 262144 bytes
+AXSS (gold): 0x474f4c44 (was: 0x53494c56)
+COR0 (gold): 0x062055dc (was: 0x066055dc)
+COR1 (gold): 0x0000000a (was: 0x00000000)
+Write GOLD image at byte address 0x00080000
+Write SILVER image at byte address 0x00800000
+Quickboot BPI header
+Critical Switch word is 00:00:00:bb 11:22:00:44 aa:99:44:66 at 0x0003fff4 (page 0)
+WBSTAR (quickboot header): 0x60400000
+MCS target device size >= 0x00e61edc
 
 In this case, the --bpi16 selects the bpi mode, and a different
 quickboot header will be written to support this chip type.
-
-** NOTE: The --bpi16 mode is still under development.
