@@ -98,8 +98,10 @@
 
 
 # include  "read_bit_file.h"
+# include  "disable_stream_crc.h"
 # include  "extract_register_write.h"
 # include  "replace_register_write.h"
+# include  "test_image_compat.h"
 # include  <vector>
 # include  <cstdint>
 # include  <cstdio>
@@ -113,11 +115,7 @@ static size_t flash_sector  = 0;
 
 static bool disable_silver = false;
 
-static bool test_basic_image_compatibility(const std::vector<uint8_t>&vec);
 static bool test_gold_image_compatible(const std::vector<uint8_t>&vec);
-static bool test_silver_image_compatible(const std::vector<uint8_t>&vec);
-
-static bool disable_stream_crc(std::vector<uint8_t>&vec);
 
 static void spi_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, size_t sector);
 static void bpi16_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, size_t sector);
@@ -362,49 +360,6 @@ int main(int argc, char*argv[])
       return 0;
 }
 
-static bool test_basic_image_compatibility(const std::vector<uint8_t>&vec)
-{
-      const uint8_t magic_sync[4] = {0xaa, 0x99, 0x55, 0x66};
-      size_t match = 0;
-      size_t ptr = 0;
-
-      while (ptr < 0x100 && match < 4) {
-	    if (vec[ptr+match] == magic_sync[match]) {
-		  match += 1;
-	    } else {
-		  ptr += 1;
-		  match = 0;
-	    }
-      }
-
-      if (match < 4) {
-	    fprintf(stderr, "Unable to find sync word in bit file.\n");
-	    return false;
-      }
-
-      ptr += match;
-
-      const uint8_t magic_iprog[8] = {0x30, 0x00, 0x80, 0x01, 0x00, 0x00, 0x00, 0x0f};
-
-      match = 0;
-      while (ptr < 0x100 && match < 8) {
-	    if (vec[ptr+match] == magic_iprog[match]) {
-		  match += 1;
-	    } else {
-		  ptr += 1;
-		  match = 0;
-	    }
-      }
-
-      if (match < 8) {
-	    return true;
-      }
-
-      fprintf(stderr, "Found IPROG command in bit stream.\n");
-
-      return false;
-}
-
 static bool test_gold_image_compatible(const std::vector<uint8_t>&vec)
 {
       if (!test_basic_image_compatibility(vec)) {
@@ -418,59 +373,6 @@ static bool test_gold_image_compatible(const std::vector<uint8_t>&vec)
 	    return false;
       }
 
-      return true;
-}
-
-static bool test_silver_image_compatible(const std::vector<uint8_t>&vec)
-{
-      if (!test_basic_image_compatibility(vec)) {
-	    fprintf(stderr, "Silver image fails basic tests.\n");
-	    return false;
-      }
-
-
-      uint32_t AXSS = extract_register_write(vec, 0x0d);
-      if (AXSS != 0x53494c56) {
-	    fprintf(stderr, "Found AXSS=0x%08x\n (s/b 0x53494c56)\n", AXSS);
-	    return false;
-      }
-
-      return true;
-}
-
-static bool disable_stream_crc(std::vector<uint8_t>&vec)
-{
-      size_t ptr = vec.size();
-      const size_t base = ptr - 3192;
-
-      const uint8_t magic[4] = {0x30, 0x00, 0x00, 0x01};
-      size_t match = 0;
-
-      ptr -= 4;
-      while (ptr>base && match<4) {
-	    if (vec[ptr+match] == magic[match]) {
-		  match += 1;
-		  continue;
-	    }
-
-	    match = 0;
-	    ptr -= 4;
-      }
-
-      if (match < 4)
-	    return false;
-
-      assert(ptr+8 <= vec.size());
-
-	// Replace the CRC code with the Reset CRC command.
-      vec[ptr+0] = 0x30;
-      vec[ptr+1] = 0x00;
-      vec[ptr+2] = 0x80;
-      vec[ptr+3] = 0x01;
-      vec[ptr+4] = 0x00;
-      vec[ptr+5] = 0x00;
-      vec[ptr+6] = 0x00;
-      vec[ptr+7] = 0x07;
       return true;
 }
 
