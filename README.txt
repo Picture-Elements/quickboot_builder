@@ -1,5 +1,5 @@
 
-To make mcs files for CLIF2F boards from only a silver file, use the command line:
+*** To make mcs files for CLIF2F boards from only a silver file, use the command line:
 
 $ ./quickboot_builder --output=CLIF2F_qb4_2A0.mcs --silver=CLIF2F_silver4_2A6.bit --spi
 No gold file, using silver file.
@@ -19,7 +19,7 @@ switch word is. The last part may vary depending on input flag
 settings. With this incantation, the gold file is generated from the
 silver file.
 
-To make mcs fies for ICB2F boards, use the command line:
+*** To make mcs files for ICB2F boards, use the command line:
 
 $ ./quickboot_builder --output=ICB2F_qbN_MMM.mcs --silver=ICB2F_silverN_MMM.bit --bpi16
 No gold file, using silver file.
@@ -39,3 +39,15 @@ MCS target device size >= 0x00e61edc
 
 In this case, the --bpi16 selects the bpi mode, and a different
 quickboot header will be written to support this chip type.
+
+*** To make a CLIF gold image (a .bit file) from a silver image:
+
+$  ./quickboot_gold --output=CLIF2F_gold6_2A6.bit --silver=CLIF2F_silver6_2A6.bit --spi
+Reading silver file: CLIF2F_silver6_2A6.bit
+AXSS (gold): 0x474f4c44 (was: 0x53494c56)
+
+*** To make a ICB gold image (a .bit file) from a silver image:
+
+$  ./quickboot_gold --output=CLIF2F_gold6_2A6.bit --silver=CLIF2F_silver6_2A6.bit --bpi16
+Reading silver file: CLIF2F_silver6_2A6.bit
+AXSS (gold): 0x474f4c44 (was: 0x53494c56)
