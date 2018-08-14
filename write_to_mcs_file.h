@@ -1,7 +1,7 @@
-#ifndef __read_bit_file_H
-#define __read_bit_file_H
+#ifndef __write_to_mcs_file_H
+#define __write_to_mcs_file_H
 /*
- * Copyright (c) 2017 Picture Elements, Inc.
+ * Copyright (c) 2017,2019 Picture Elements, Inc.
  *    Stephen Williams (steve@icarus.com)
  *
  *    This source code is free software; you can redistribute it
@@ -21,10 +21,10 @@
  */
 
 # include  <vector>
-# include  <cstdio>
 # include  <cstdint>
-# include  <cstdlib>
+# include  <cstdio>
 
-extern void read_bit_file(std::vector<uint8_t>&dst, FILE*fd, size_t pad_ff =0);
+
+extern void write_to_mcs_file(FILE*fd, const std::vector<uint8_t>&vec);
 
 #endif

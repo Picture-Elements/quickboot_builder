@@ -29,8 +29,11 @@ using namespace std;
  * Read a bit file into the dst vector, and strip the header details
  * off. The result is a vector that starts at the mark (0xffffffff)
  * bytes.
+ *
+ * Optionally, make sure the mark is padded to be at least pad_ff
+ * bytes of pad.
  */
-void read_bit_file(vector<uint8_t>&dst, FILE*fd)
+void read_bit_file(vector<uint8_t>&dst, FILE*fd, size_t pad_ff)
 {
       fseek(fd, 0, SEEK_END);
       size_t file_size = ftell(fd);
@@ -59,10 +62,40 @@ void read_bit_file(vector<uint8_t>&dst, FILE*fd)
 	    return;
       }
 
-	/* Strip the header off of the bit file. The dst vector now
-	   contains the bit stream, ready to insert. */
-      if (rc > 0) {
-	    memmove(&dst[0], &dst[rc], dst.size()-rc);
-	    dst.resize(dst.size()-rc);
+	/* rc is now the offset into the image where the first 0xff
+	   (after the header) starts. Now count the number of 0xff
+	   bytes are present. */
+      size_t ff_count = 0;
+      while ((dst[rc+ff_count] == 0xff) && ((rc+ff_count) < dst.size()))
+	    ff_count += 1;
+
+      if (pad_ff < ff_count)
+	    pad_ff = ff_count;
+
+	/* Now ff_count is the number of leading ff bytes that we
+	   have, and pad_ff is the number of ff bytes that we
+	   nead. Also, pad_ff >= ff_count. */
+
+      if ((pad_ff-ff_count) > rc) {
+	      /* If the amount of extra pad we need is more then the
+		 amount of header that we can trim, then expand the
+		 target array to make room for the pad. Note that we
+		 can overwrite header with pad. */
+	    size_t shift = pad_ff - ff_count - rc;
+	    dst.resize(dst.size() + shift);
+	    memmove(&dst[shift], &dst[0], dst.size());
+
+      } else if ((pad_ff-ff_count) < rc) {
+	      /* If the amount of extra pad we need is less then the
+		 amount of header that we can trim, then trim off the
+		 excess header and shrink the target array. Leave
+		 enough space for the target ff pad. */
+	    size_t shift = rc - (pad_ff-ff_count);
+	    memmove(&dst[0], &dst[shift], dst.size() - shift);
+	    dst.resize(dst.size() - shift);
       }
+
+	/* In any case, make sure the prefix starts with pad. This may
+	   erase unused header, or fill in new array space. */
+      memset(&dst[0], 0xff, pad_ff);
 }
