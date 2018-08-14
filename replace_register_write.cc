@@ -29,8 +29,10 @@ uint32_t replace_register_write(std::vector<uint8_t>&vec, uint32_t addr, uint32_
       size_t match = 0;
       size_t ptr = 0;
 
+      const size_t SCAN_LIMIT = 0x300;
+
 	// Scan into the bit stream for the sync word.
-      while (ptr < 0x100 && match < 4) {
+      while (ptr < SCAN_LIMIT && match < 4) {
 	    if (vec[ptr+match] == magic[match]) {
 		  match += 1;
 	    } else {
@@ -48,7 +50,7 @@ uint32_t replace_register_write(std::vector<uint8_t>&vec, uint32_t addr, uint32_
 	// interesting commands.
       ptr += match;
 
-      while (ptr < 0x100) {
+      while (ptr < SCAN_LIMIT) {
 	    uint32_t word = vec[ptr+0];
 	    word <<= 8;
 	    word |= vec[ptr+1];
