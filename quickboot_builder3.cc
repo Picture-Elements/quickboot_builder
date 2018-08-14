@@ -29,10 +29,10 @@
  *                    image, so that the fall back to gold can be
  *                    tested.
  *
- *   --clif30=<path>
- *   --clif31=<path>
  *   --clif32-4=<path>
  *   --clif32-6=<path>
+ *   --clif30=<path>
+ *   --clif31=<path>
  *                    Specify the various input designs that go into
  *                    making the flash image. These input .bit files
  *                    are taken to be silver files. Gold files are
@@ -127,12 +127,10 @@ int main(int argc, char*argv[])
 	    fprintf(stderr, "No CLIF32-4 file? Please specify --clif32-4=<path>\n");
 	    return -1;
       }
-#if 0
-      if (path_clif32_6 == 0) {
-	    fprintf(stderr, "No CLIF32-6 file? Please specify --clif32-6=<path>\n");
-	    return -1;
-      }
-#endif
+
+	/* Number of designs to load. */
+      size_t design_count = 0;
+
 	/* Read in the CLIF32-4 design */
       fd = fopen(path_clif32_4, "rb");
       if (fd == 0) {
@@ -147,11 +145,33 @@ int main(int argc, char*argv[])
       if (vec_clif32_4.size() == 0)
 	    return -1;
 
+      design_count += 1;
       fclose(fd);
 
+	/* If the user also specifies the CLIF32-6 design, then load
+	   it as well. */
+      vector<uint8_t> vec_clif32_6;
+      if (path_clif32_6) {
+	      /* Read in the CLIF32-6 design */
+	    fd = fopen(path_clif32_6, "rb");
+	    if (fd == 0) {
+		  fprintf(stderr, "Unable to open CLIF32-6 file: %s\n", path_clif32_6);
+		  return -1;
+	    }
+
+	    fprintf(stdout, "Reading CLIF32-6 silver file: %s\n", path_clif32_6);
+	    fflush(stdout);
+	    read_bit_file(vec_clif32_6, fd, 256+32 /* Need large 0xff pad */);
+	    if (vec_clif32_6.size() == 0)
+		  return -1;
+
+	    design_count += 1;
+	    fclose(fd);
+      }
+
       vector<uint8_t> vec_out;
-	/* XXXX Make an image that holds ONE design. */
-      vec_out.resize(1 * design_offset);
+	/* Make an image that holds the designs. */
+      vec_out.resize(design_count * design_offset);
       memset(&vec_out[0], 0xff, vec_out.size());
 
 
@@ -159,6 +179,14 @@ int main(int argc, char*argv[])
       fflush(stdout);
 
       make_design(vec_out, 0, vec_clif32_4);
+
+
+      if (vec_clif32_6.size() > 1) {
+	    fprintf(stdout, "Processing CLIF32-6 design...\n");
+	    fflush(stdout);
+
+	    make_design(vec_out, 1, vec_clif32_6);
+      }
 
 
       fprintf(stdout, "Done processing designs, writing mcs file.\n");
