@@ -210,9 +210,15 @@ int main(int argc, char*argv[])
  * (0-3) and the input silver file. Generate a gold file, and write
  * both into the output image and the correct position for the design.
  */
-static void make_design(vector<uint8_t>&vec_out, int design_pos, const vector<uint8_t>&vec_silver)
+static void make_design(vector<uint8_t>&vec_out, int design_pos, const vector<uint8_t>&raw_silver)
 {
+	/* Location in the image of this design (gold and silver) */
       const size_t design_base = design_pos * design_offset;
+	/* This is the BSPI value to use. */
+      const uint8_t BSPI = 0x0c;
+
+	/* Local copy of the silver image, that we can edit. */
+      vector<uint8_t> vec_silver = raw_silver;
 
 	/* Make a gold image from the silver input. */
       vector<uint8_t> vec_gold = vec_silver;
@@ -220,12 +226,21 @@ static void make_design(vector<uint8_t>&vec_out, int design_pos, const vector<ui
       uint32_t AXSS = replace_register_write(vec_gold, 0x0d, 0x474f4c44);
       fprintf(stdout, "... AXSS (gold): 0x474f4c44 (was: 0x%08x)\n", AXSS);
 
+      uint32_t old_BSPI = replace_register_write(vec_gold, 0x1f, BSPI);
+      fprintf(stdout, "... BSPI (gold): 0x%08x (was: 0x%08x)\n", BSPI, old_BSPI);
+
 	/* Gold images have the CRC disabled. */
       while (disable_stream_crc(vec_gold)) {
 	      /* repeat */
       }
 
+      old_BSPI = replace_register_write(vec_silver, 0x1f, BSPI);
+      fprintf(stdout, "... BSPI (silver): 0x%08x (was: 0x%08x)\n", BSPI, old_BSPI);
+
+	/* Put the gold image here (after the design_base) to allow
+	   space for the quickboot header. */
       const size_t gold_start = flash_sector*2;
+
       if (gold_start+vec_gold.size() > multiboot_offset) {
 	    fprintf(stderr, "ERROR: Gold image (%zu bytes) does not fit "
 		    "in multiboot region (%zu bytes)\n",
@@ -258,7 +273,6 @@ static void make_design(vector<uint8_t>&vec_out, int design_pos, const vector<ui
 	// write offset[32:8] to WBSTAR instead of [23:0]. We will be
 	// writing a 0x0000000c to BSPI to call out that mode.
       offset >>= 8;
-      const uint8_t BSPI = 0x0c;
 	// Assert that START_ADDR in WBSTAR does not overflow into the
 	// RS_TS_B and RS bits.
       assert((offset & 0xe0000000) == 0);
@@ -292,14 +306,14 @@ static void make_design(vector<uint8_t>&vec_out, int design_pos, const vector<ui
       vec_out[design_base + flash_sector +21] = 0x00; /* ... */
       vec_out[design_base + flash_sector +22] = 0x00; /* ... */
       vec_out[design_base + flash_sector +23] = 0x00; /* ... */
-      vec_out[design_base + flash_sector +24] = 0x30; /* Write to Watchdog */
-      vec_out[design_base + flash_sector +25] = 0x02; /* ... */
-      vec_out[design_base + flash_sector +26] = 0x20; /* ... */
-      vec_out[design_base + flash_sector +27] = 0x01; /* ... */
-      vec_out[design_base + flash_sector +28] = 0x40; /* ... */
-      vec_out[design_base + flash_sector +29] = 0x03; /* ... */
-      vec_out[design_base + flash_sector +30] = 0xff; /* ... */
-      vec_out[design_base + flash_sector +31] = 0xff; /* ... */
+      vec_out[design_base + flash_sector +24] = 0x20; /* NOOP */
+      vec_out[design_base + flash_sector +25] = 0x00; /* ... */
+      vec_out[design_base + flash_sector +26] = 0x00; /* ... */
+      vec_out[design_base + flash_sector +27] = 0x00; /* ... */
+      vec_out[design_base + flash_sector +28] = 0x20; /* NOOP */
+      vec_out[design_base + flash_sector +29] = 0x00; /* ... */
+      vec_out[design_base + flash_sector +30] = 0x00; /* ... */
+      vec_out[design_base + flash_sector +31] = 0x00; /* ... */
       vec_out[design_base + flash_sector +32] = 0x30; /* Write to WBSTAR */
       vec_out[design_base + flash_sector +33] = 0x02; /* ... */
       vec_out[design_base + flash_sector +34] = 0x00; /* ... */
