@@ -24,9 +24,9 @@
  * Write the entire assembled vector into the output file as an .mcs
  * stream.
  */
-void write_to_mcs_file(FILE*fd, const std::vector<uint8_t>&vec)
+void write_to_mcs_file(FILE*fd, const std::vector<uint8_t>&vec, size_t start_address)
 {
-      size_t address = 0;
+      size_t address = start_address;
 
       while (address < vec.size()) {
 	    int sum = 2 + 4 + ((address>>16)&0xff) + ((address>>24)&0xff);

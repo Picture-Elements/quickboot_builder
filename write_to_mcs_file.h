@@ -25,6 +25,6 @@
 # include  <cstdio>
 
 
-extern void write_to_mcs_file(FILE*fd, const std::vector<uint8_t>&vec);
+extern void write_to_mcs_file(FILE*fd, const std::vector<uint8_t>&vec, size_t skip_bytes =0);
 
 #endif

@@ -79,7 +79,6 @@ int main(int argc, char*argv[])
       const char*path_clif32_4 = 0;
       const char*path_clif31 = 0;
       const char*path_clif30 = 0;
-      FILE*fd = 0;
 
       for (int optarg = 1 ; optarg < argc ; optarg += 1) {
 	    if (strncmp(argv[optarg],"--output=",9) == 0) {
@@ -111,49 +110,38 @@ int main(int argc, char*argv[])
 	    fprintf(stderr, "No output file? Please specify --output=<path>\n");
 	    return -1;
       }
-#if 0
-      if (path_clif30 == 0) {
-	    fprintf(stderr, "No CLIF30 file? Please specify --clif30=<path>\n");
-	    return -1;
-      }
-#endif
-#if 0
-      if (path_clif31 == 0) {
-	    fprintf(stderr, "No CLIF31 file? Please specify --clif31=<path>\n");
-	    return -1;
-      }
-#endif
-      if (path_clif32_4 == 0) {
-	    fprintf(stderr, "No CLIF32-4 file? Please specify --clif32-4=<path>\n");
-	    return -1;
-      }
 
 	/* Number of designs to load. */
       size_t design_count = 0;
+      size_t first_design = 99;
+      size_t last_design = 0;
 
 	/* Read in the CLIF32-4 design */
-      fd = fopen(path_clif32_4, "rb");
-      if (fd == 0) {
-	    fprintf(stderr, "Unable to open CLIF32-4 file: %s\n", path_clif32_4);
-	    return -1;
+      vector<uint8_t> vec_clif32_4;
+      if (path_clif32_4) {
+	    FILE*fd = fopen(path_clif32_4, "rb");
+	    if (fd == 0) {
+		  fprintf(stderr, "Unable to open CLIF32-4 file: %s\n", path_clif32_4);
+		  return -1;
+	    }
+
+	    fprintf(stdout, "Reading CLIF32-4 silver file: %s\n", path_clif32_4);
+	    fflush(stdout);
+	    read_bit_file(vec_clif32_4, fd, 256+32 /* Need large 0xff pad */);
+	    if (vec_clif32_4.size() == 0)
+		  return -1;
+
+	    design_count += 1;
+	    first_design = 0;
+	    last_design = 0;
+	    fclose(fd);
       }
 
-      fprintf(stdout, "Reading CLIF32-4 silver file: %s\n", path_clif32_4);
-      fflush(stdout);
-      vector<uint8_t> vec_clif32_4;
-      read_bit_file(vec_clif32_4, fd, 256+32 /* Need large 0xff pad */);
-      if (vec_clif32_4.size() == 0)
-	    return -1;
-
-      design_count += 1;
-      fclose(fd);
-
-	/* If the user also specifies the CLIF32-6 design, then load
-	   it as well. */
+	/* Read in the CLIF32-6 design */
       vector<uint8_t> vec_clif32_6;
       if (path_clif32_6) {
 	      /* Read in the CLIF32-6 design */
-	    fd = fopen(path_clif32_6, "rb");
+	    FILE*fd = fopen(path_clif32_6, "rb");
 	    if (fd == 0) {
 		  fprintf(stderr, "Unable to open CLIF32-6 file: %s\n", path_clif32_6);
 		  return -1;
@@ -166,20 +154,79 @@ int main(int argc, char*argv[])
 		  return -1;
 
 	    design_count += 1;
+	    if (1 < first_design) first_design = 1;
+	    last_design = 1;
 	    fclose(fd);
+      }
+
+	/* Read in the CLIF30 design */
+      vector<uint8_t> vec_clif30;
+      if (path_clif30) {
+	      /* Read in the CLIF30 design */
+	    FILE*fd = fopen(path_clif30, "rb");
+	    if (fd == 0) {
+		  fprintf(stderr, "Unable to open CLIF30 file: %s\n", path_clif30);
+		  return -1;
+	    }
+
+	    fprintf(stdout, "Reading CLIF30 silver file: %s\n", path_clif30);
+	    fflush(stdout);
+	    read_bit_file(vec_clif30, fd, 256+32 /* Need large 0xff pad */);
+	    if (vec_clif30.size() == 0)
+		  return -1;
+
+	    if (2 < first_design) first_design = 2;
+	    last_design = 2;
+	    design_count += 1;
+	    fclose(fd);
+      }
+
+	/* Read in the CLIF31 design */
+      vector<uint8_t> vec_clif31;
+      if (path_clif31) {
+	      /* Read in the CLIF31 design */
+	    FILE*fd = fopen(path_clif31, "rb");
+	    if (fd == 0) {
+		  fprintf(stderr, "Unable to open CLIF31 file: %s\n", path_clif31);
+		  return -1;
+	    }
+
+	    fprintf(stdout, "Reading CLIF31 silver file: %s\n", path_clif31);
+	    fflush(stdout);
+	    read_bit_file(vec_clif31, fd, 256+32 /* Need large 0xff pad */);
+	    if (vec_clif31.size() == 0)
+		  return -1;
+
+	    if (3 < first_design) first_design = 3;
+	    last_design = 3;
+	    design_count += 1;
+	    fclose(fd);
+      }
+
+      if (design_count < 1) {
+	    fprintf(stderr, "No designs specified?\n");
+	    return -1;
+      }
+
+      if ((last_design-first_design+1) != design_count) {
+	    fprintf(stderr, "Supplied designs are not contiguous.\n");
+	    return -1;
       }
 
       vector<uint8_t> vec_out;
 	/* Make an image that holds the designs. */
-      vec_out.resize(design_count * design_offset);
+      vec_out.resize((design_count+first_design) * design_offset);
       memset(&vec_out[0], 0xff, vec_out.size());
 
+      assert(design_count > 0);
+      assert((design_count-1) + first_design == last_design);
 
-      fprintf(stdout, "Processing CLIF32-4 design...\n");
-      fflush(stdout);
+      if (vec_clif32_4.size() > 1) {
+	    fprintf(stdout, "Processing CLIF32-4 design...\n");
+	    fflush(stdout);
 
-      make_design(vec_out, 0, vec_clif32_4);
-
+	    make_design(vec_out, 0, vec_clif32_4);
+      }
 
       if (vec_clif32_6.size() > 1) {
 	    fprintf(stdout, "Processing CLIF32-6 design...\n");
@@ -189,15 +236,31 @@ int main(int argc, char*argv[])
       }
 
 
+      if (vec_clif30.size() > 1) {
+	    fprintf(stdout, "Processing CLIF30 design...\n");
+	    fflush(stdout);
+
+	    make_design(vec_out, 2, vec_clif30);
+      }
+
+
+      if (vec_clif31.size() > 1) {
+	    fprintf(stdout, "Processing CLIF31 design...\n");
+	    fflush(stdout);
+
+	    make_design(vec_out, 3, vec_clif31);
+      }
+
+
       fprintf(stdout, "Done processing designs, writing mcs file.\n");
-      fd = fopen(path_out, "wb");
+      FILE*fd = fopen(path_out, "wb");
       if (fd == 0) {
 	    fprintf(stderr, "Unable to open output file: %s\n", path_out);
 	    return -1;
       }
       fflush(stdout);
 
-      write_to_mcs_file(fd, vec_out);
+      write_to_mcs_file(fd, vec_out, first_design * design_offset);
 
       fclose(fd);
       fd = 0;
@@ -253,7 +316,7 @@ static void make_design(vector<uint8_t>&vec_out, int design_pos, const vector<ui
       memcpy(&vec_out[design_base + gold_start], &vec_gold[0], vec_gold.size());
 
       fprintf(stdout, "... Write SILVER image at byte address 0x%08zx\n",
-	      multiboot_offset);
+	      design_base + multiboot_offset);
       memcpy(&vec_out[design_base + multiboot_offset], &vec_silver[0], vec_silver.size());
 
       if (debug_trash_silver) {

@@ -1,4 +1,38 @@
 
+*** To make mcs files for CLIF2F boards using quickboot_builder2, use
+*** the command line:
+
+$ ./quickboot_builder --output=CLIF2F-32-4-6_3209.mcs \
+           --clif32-4=CLIF2F-silver4_3209.bit \
+           --clif32-6=CLIF2F-silver6_3209.bit
+Reading CLIF32-4 silver file: CLIF2F_silver4_3209.bit
+Reading CLIF32-6 silver file: CLIF2F_silver6_3209.bit
+Processing CLIF32-4 design...
+... AXSS (gold): 0x474f4c44 (was: 0x53494c56)
+... BSPI (gold): 0x0000000c (was: 0x0000000b)
+... BSPI (silver): 0x0000000c (was: 0x0000000b)
+... Write GOLD image at byte address 0x00020000
+... Write SILVER image at byte address 0x00400000
+... Critical Switch word is aa:99:55:66 at 0x0000fffc
+Processing CLIF32-6 design...
+... AXSS (gold): 0x474f4c44 (was: 0x53494c56)
+... BSPI (gold): 0x0000000c (was: 0x0000000b)
+... BSPI (silver): 0x0000000c (was: 0x0000000b)
+... Write GOLD image at byte address 0x00820000
+... Write SILVER image at byte address 0x00c00000
+... Critical Switch word is aa:99:55:66 at 0x0080fffc
+Done processing designs, writing mcs file.
+MCS target device size >= 0x01000000
+
+The output gives the important details for each design, including
+where the critical switch word for that design lives. The design
+collection can be up to four designs. If multiple designs are
+specified, then the MCS file will contain the contiguous image that
+writes all the designs to the flash. If only a single design is given,
+then the MCS file will contain the image, properly offset in the
+target flash, for only the target flash.
+
+
 *** To make mcs files for CLIF2F boards from only a silver file, use the command line:
 
 $ ./quickboot_builder --output=CLIF2F_qb4_2A0.mcs --silver=CLIF2F_silver4_2A6.bit --spi
