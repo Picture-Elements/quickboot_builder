@@ -24,6 +24,7 @@
  *                    contain the .mcs file stream.
  *
  *   --disable-silver
+ *   --disable-silver-header
  *   --no-disable-silver (default)
  *                    Debug aid. Intentionally corrupt the silver
  *                    image, so that the fall back to gold can be
@@ -69,6 +70,7 @@ static const size_t multiboot_offset = 4*1024*1024;
 static const size_t design_offset = 2 * multiboot_offset;
 
 static bool debug_trash_silver = false;
+static bool debug_trash_silver_header = false;
 
 static void make_design(vector<uint8_t>&vec_out, int design_pos, const vector<uint8_t>&vec_silver);
 
@@ -98,9 +100,15 @@ int main(int argc, char*argv[])
 
 	    } else if (strcmp(argv[optarg],"--disable-silver") == 0) {
 		  debug_trash_silver = true;
+		  debug_trash_silver_header = false;
+
+	    } else if (strcmp(argv[optarg],"--disable-silver-header") == 0) {
+		  debug_trash_silver = true;
+		  debug_trash_silver_header = true;
 
 	    } else if (strcmp(argv[optarg],"--no-disable-silver") == 0) {
 		  debug_trash_silver = false;
+		  debug_trash_silver_header = false;
 
 	    } else {
 	    }
@@ -320,9 +328,9 @@ static void make_design(vector<uint8_t>&vec_out, int design_pos, const vector<ui
       memcpy(&vec_out[design_base + multiboot_offset], &vec_silver[0], vec_silver.size());
 
       if (debug_trash_silver) {
-	    size_t trash_offset = vec_silver.size() / 2;
+	    size_t trash_offset = debug_trash_silver_header? 0 : vec_silver.size() / 2;
 	    trash_offset &= ~(flash_sector-1);
-	    fprintf(stdout, "*** DEBUG Trash sector at 0x%08zx in silver image.\n", trash_offset);
+	    fprintf(stdout, "*** DEBUG Trash sector at 0x%08zx in silver image. (0x%08zx in flash imagee)\n", trash_offset, design_base+multiboot_offset+trash_offset);
 	    for (size_t idx = 0 ; idx < flash_sector ; idx += 1)
 		  vec_out[design_base+multiboot_offset+trash_offset+idx] = 0xff;
       }
@@ -369,14 +377,14 @@ static void make_design(vector<uint8_t>&vec_out, int design_pos, const vector<ui
       vec_out[design_base + flash_sector +21] = 0x00; /* ... */
       vec_out[design_base + flash_sector +22] = 0x00; /* ... */
       vec_out[design_base + flash_sector +23] = 0x00; /* ... */
-      vec_out[design_base + flash_sector +24] = 0x20; /* NOOP */
-      vec_out[design_base + flash_sector +25] = 0x00; /* ... */
-      vec_out[design_base + flash_sector +26] = 0x00; /* ... */
-      vec_out[design_base + flash_sector +27] = 0x00; /* ... */
-      vec_out[design_base + flash_sector +28] = 0x20; /* NOOP */
+      vec_out[design_base + flash_sector +24] = 0x30; /* Set a watchdog timer */
+      vec_out[design_base + flash_sector +25] = 0x02; /* ... */
+      vec_out[design_base + flash_sector +26] = 0x20; /* ... */
+      vec_out[design_base + flash_sector +27] = 0x01; /* ... */
+      vec_out[design_base + flash_sector +28] = 0x40; /* ... */
       vec_out[design_base + flash_sector +29] = 0x00; /* ... */
-      vec_out[design_base + flash_sector +30] = 0x00; /* ... */
-      vec_out[design_base + flash_sector +31] = 0x00; /* ... */
+      vec_out[design_base + flash_sector +30] = 0x7f; /* ... */
+      vec_out[design_base + flash_sector +31] = 0xff; /* ... */
       vec_out[design_base + flash_sector +32] = 0x30; /* Write to WBSTAR */
       vec_out[design_base + flash_sector +33] = 0x02; /* ... */
       vec_out[design_base + flash_sector +34] = 0x00; /* ... */
