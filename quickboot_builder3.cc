@@ -38,6 +38,35 @@
  *                    making the flash image. These input .bit files
  *                    are taken to be silver files. Gold files are
  *                    generated from the silver files.
+ *
+ * FIELD PROGRAMMING:
+ * The quickboot image includes both the gold and the silver FPGA
+ * images for 4 alternative designs in a single MCS stream that can be
+ * written to the flash. In the field, the silver image is meant to be
+ * updatable. Each silver image is in the flash at its own position,
+ * and has its own criticanl switch word. The process for rewriting a
+ * silver image is:
+ *
+ *   1: Erase (to 0xff) the page/sector that contains the critical
+ *   switch word.
+ *
+ *        This disables the quickboot of the silver image, so that
+ *        reboot of the flash will load the gold image. Leave the
+ *        quickboot disabled until the silver image is updated.
+ *
+ *   2: Erase and reprogram the silver image.
+ *
+ *        The silver image is written to its. address. Erase from
+ *        there to the end of the existing silver section, and write
+ *        the new silver image in place. It is recommended that the
+ *        programmer read back the entire silver image to assure that
+ *        the program process worked properly.
+ *
+ *   3: Restore quickboot.
+ *
+ *        Write the Critical Switch word to the last address of the
+ *        sector where the critical switch word belongs. This
+ *        re-enables the quickboot boot of the silver image.
  */
 
 # include  "disable_stream_crc.h"
@@ -220,6 +249,8 @@ int main(int argc, char*argv[])
 	    fprintf(stderr, "Supplied designs are not contiguous.\n");
 	    return -1;
       }
+
+      fprintf(stdout, "Flash sectors are %zu (0x%08zx) bytes.\n", flash_sector, flash_sector);
 
       vector<uint8_t> vec_out;
 	/* Make an image that holds the designs. */
