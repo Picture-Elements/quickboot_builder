@@ -23,12 +23,20 @@
  *   --output=<path>  Specify the output file. The output file will
  *                    contain the .mcs file stream.
  *
- *   --disable-silver
- *   --disable-silver-header
+ *   --disable-silver [=<mask>]
+ *   --disable-silver-header [=<mask>]
  *   --no-disable-silver (default)
  *                    Debug aid. Intentionally corrupt the silver
  *                    image, so that the fall back to gold can be
- *                    tested.
+ *                    tested. If the <mask> is specified, then this is
+ *                    mask of the silver designs to be trashed.
+ *
+ *   --disable-syncword [=<mask>]
+ *   --no-disable-syncword
+ *                    Debug aid. Intentionally leave off the critical
+ *                    sync word for the quickboot headers for the
+ *                    given designs. If the <mask> is specified, then
+ *                    enable this debug feature only for the masked designs.
  *
  *   --clif32-4=<path>
  *   --clif32-6=<path>
@@ -98,8 +106,9 @@ static const size_t multiboot_offset = 4*1024*1024;
  */
 static const size_t design_offset = 2 * multiboot_offset;
 
-static bool debug_trash_silver = false;
-static bool debug_trash_silver_header = false;
+static int debug_trash_silver_mask = 0;
+static int debug_trash_silver_header_mask = 0;
+static int debug_trash_syncword_mask = 0;
 
 static void make_design(vector<uint8_t>&vec_out, int design_pos, const vector<uint8_t>&vec_silver);
 
@@ -128,16 +137,33 @@ int main(int argc, char*argv[])
 		  path_clif32_6 = argv[optarg] + 11;
 
 	    } else if (strcmp(argv[optarg],"--disable-silver") == 0) {
-		  debug_trash_silver = true;
-		  debug_trash_silver_header = false;
+		  debug_trash_silver_mask = 0xff;
+		  debug_trash_silver_header_mask = 0x00;
+
+	    } else if (strncmp(argv[optarg],"--disable-silver=",17) == 0) {
+		  debug_trash_silver_mask = strtoul(argv[optarg]+17,0,0);
+		  debug_trash_silver_header_mask = 0x00;
 
 	    } else if (strcmp(argv[optarg],"--disable-silver-header") == 0) {
-		  debug_trash_silver = true;
-		  debug_trash_silver_header = true;
+		  debug_trash_silver_mask = 0xff;
+		  debug_trash_silver_header_mask = 0xff;
+
+	    } else if (strncmp(argv[optarg],"--disable-silver-header=",24) == 0) {
+		  debug_trash_silver_mask = strtoul(argv[optarg]+24,0,0);
+		  debug_trash_silver_header_mask = debug_trash_silver_mask;
 
 	    } else if (strcmp(argv[optarg],"--no-disable-silver") == 0) {
-		  debug_trash_silver = false;
-		  debug_trash_silver_header = false;
+		  debug_trash_silver_mask = 0x00;
+		  debug_trash_silver_header_mask = 0x00;
+
+	    } else if (strcmp(argv[optarg],"--disable-syncword") == 0) {
+		  debug_trash_syncword_mask = 0xff;
+
+	    } else if (strncmp(argv[optarg],"--disable-syncword=",19) == 0) {
+		  debug_trash_syncword_mask = strtoul(argv[optarg]+19,0,0);
+
+	    } else if (strcmp(argv[optarg],"--no-disable-syncword") == 0) {
+		  debug_trash_syncword_mask = 0x00;
 
 	    } else {
 	    }
@@ -314,6 +340,10 @@ int main(int argc, char*argv[])
  */
 static void make_design(vector<uint8_t>&vec_out, int design_pos, const vector<uint8_t>&raw_silver)
 {
+      const bool debug_trash_silver = debug_trash_silver_mask & (1 << design_pos)? true : false;
+      const bool debug_trash_silver_header = debug_trash_silver_header_mask & (1 << design_pos)? true : false;
+      const bool debug_trash_syncword = debug_trash_syncword_mask & (1 << design_pos)? true : false;
+
 	/* Location in the image of this design (gold and silver) */
       const size_t design_base = design_pos * design_offset;
 	/* This is the BSPI value to use. */
@@ -361,7 +391,7 @@ static void make_design(vector<uint8_t>&vec_out, int design_pos, const vector<ui
       if (debug_trash_silver) {
 	    size_t trash_offset = debug_trash_silver_header? 0 : vec_silver.size() / 2;
 	    trash_offset &= ~(flash_sector-1);
-	    fprintf(stdout, "*** DEBUG Trash sector at 0x%08zx in silver image. (0x%08zx in flash imagee)\n", trash_offset, design_base+multiboot_offset+trash_offset);
+	    fprintf(stdout, "*** DEBUG Trash sector at 0x%08zx in silver image (0x%08zx in flash image).\n", trash_offset, design_base+multiboot_offset+trash_offset);
 	    for (size_t idx = 0 ; idx < flash_sector ; idx += 1)
 		  vec_out[design_base+multiboot_offset+trash_offset+idx] = 0xff;
       }
@@ -379,11 +409,18 @@ static void make_design(vector<uint8_t>&vec_out, int design_pos, const vector<ui
 	// RS_TS_B and RS bits.
       assert((offset & 0xe0000000) == 0);
 
-
-      vec_out[design_base + flash_sector - 4] = 0xaa; /* Sync word */
-      vec_out[design_base + flash_sector - 3] = 0x99; /* ... */
-      vec_out[design_base + flash_sector - 2] = 0x55; /* ... */
-      vec_out[design_base + flash_sector - 1] = 0x66; /* ... */
+	// Normally include the critical sync word. If we are
+	// debugging the absence of that word, then skip it, leaving
+	// the sector filled with 0xff.
+      if (!debug_trash_syncword) {
+	    vec_out[design_base + flash_sector - 4] = 0xaa; /* Sync word */
+	    vec_out[design_base + flash_sector - 3] = 0x99; /* ... */
+	    vec_out[design_base + flash_sector - 2] = 0x55; /* ... */
+	    vec_out[design_base + flash_sector - 1] = 0x66; /* ... */
+      } else {
+	    fprintf(stdout, "*** DEBUG Clear critical sync word in quickboot header.\n");
+	    fflush(stdout);
+      }
       vec_out[design_base + flash_sector + 0] = 0x20; /* NOOP */
       vec_out[design_base + flash_sector + 1] = 0x00; /* ... */
       vec_out[design_base + flash_sector + 2] = 0x00; /* ... */
