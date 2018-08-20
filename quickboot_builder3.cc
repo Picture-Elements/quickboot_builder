@@ -305,7 +305,7 @@ int main(int argc, char*argv[])
 	    fprintf(stdout, "Processing CLIF30 design...\n");
 	    fflush(stdout);
 
-	    make_design(vec_out, 2, vec_clif30);
+	    make_design(vec_out, 3, vec_clif30);
       }
 
 
@@ -313,7 +313,7 @@ int main(int argc, char*argv[])
 	    fprintf(stdout, "Processing CLIF31 design...\n");
 	    fflush(stdout);
 
-	    make_design(vec_out, 3, vec_clif31);
+	    make_design(vec_out, 2, vec_clif31);
       }
 
 
