@@ -1,5 +1,11 @@
 
 *~
 *.o
+*.obj
 *.mcs
+*.exe
 quickboot_builder
+quickboot_gold
+quickboot_builder3
+quickboot_silver3
+quickboot_gold3
