@@ -40,8 +40,8 @@
  *
  *   --clif32-4=<path>
  *   --clif32-6=<path>
- *   --clif30=<path>
  *   --clif31=<path>
+ *   --clif30=<path>
  *                    Specify the various input designs that go into
  *                    making the flash image. These input .bit files
  *                    are taken to be silver files. Gold files are
@@ -75,6 +75,13 @@
  *        Write the Critical Switch word to the last address of the
  *        sector where the critical switch word belongs. This
  *        re-enables the quickboot boot of the silver image.
+ *
+ * The designs are written into the MCS file in this order:
+ *
+ *    (0) clif32-4
+ *    (1) clif32-6
+ *    (2) clif31
+ *    (3) clif30
  */
 
 # include  "disable_stream_crc.h"
@@ -222,27 +229,6 @@ int main(int argc, char*argv[])
 	    fclose(fd);
       }
 
-	/* Read in the CLIF30 design */
-      vector<uint8_t> vec_clif30;
-      if (path_clif30) {
-	      /* Read in the CLIF30 design */
-	    FILE*fd = fopen(path_clif30, "rb");
-	    if (fd == 0) {
-		  fprintf(stderr, "Unable to open CLIF30 file: %s\n", path_clif30);
-		  return -1;
-	    }
-
-	    fprintf(stdout, "Reading CLIF30 silver file: %s\n", path_clif30);
-	    fflush(stdout);
-	    read_bit_file(vec_clif30, fd, 256+32 /* Need large 0xff pad */);
-	    if (vec_clif30.size() == 0)
-		  return -1;
-
-	    if (2 < first_design) first_design = 2;
-	    last_design = 2;
-	    design_count += 1;
-	    fclose(fd);
-      }
 
 	/* Read in the CLIF31 design */
       vector<uint8_t> vec_clif31;
@@ -258,6 +244,28 @@ int main(int argc, char*argv[])
 	    fflush(stdout);
 	    read_bit_file(vec_clif31, fd, 256+32 /* Need large 0xff pad */);
 	    if (vec_clif31.size() == 0)
+		  return -1;
+
+	    if (2 < first_design) first_design = 2;
+	    last_design = 2;
+	    design_count += 1;
+	    fclose(fd);
+      }
+
+	/* Read in the CLIF30 design */
+      vector<uint8_t> vec_clif30;
+      if (path_clif30) {
+	      /* Read in the CLIF30 design */
+	    FILE*fd = fopen(path_clif30, "rb");
+	    if (fd == 0) {
+		  fprintf(stderr, "Unable to open CLIF30 file: %s\n", path_clif30);
+		  return -1;
+	    }
+
+	    fprintf(stdout, "Reading CLIF30 silver file: %s\n", path_clif30);
+	    fflush(stdout);
+	    read_bit_file(vec_clif30, fd, 256+32 /* Need large 0xff pad */);
+	    if (vec_clif30.size() == 0)
 		  return -1;
 
 	    if (3 < first_design) first_design = 3;
@@ -301,19 +309,19 @@ int main(int argc, char*argv[])
       }
 
 
-      if (vec_clif30.size() > 1) {
-	    fprintf(stdout, "Processing CLIF30 design...\n");
-	    fflush(stdout);
-
-	    make_design(vec_out, 3, vec_clif30);
-      }
-
-
       if (vec_clif31.size() > 1) {
 	    fprintf(stdout, "Processing CLIF31 design...\n");
 	    fflush(stdout);
 
 	    make_design(vec_out, 2, vec_clif31);
+      }
+
+
+      if (vec_clif30.size() > 1) {
+	    fprintf(stdout, "Processing CLIF30 design...\n");
+	    fflush(stdout);
+
+	    make_design(vec_out, 3, vec_clif30);
       }
 
 
