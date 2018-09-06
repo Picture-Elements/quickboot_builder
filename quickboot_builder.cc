@@ -116,6 +116,12 @@ static size_t flash_sector  = 0;
 
 static bool disable_silver = false;
 
+/*
+ * How to map multiboot_address bits to rs[1:0] in WBSTAR.
+ */
+static int bpi16_rs0 = 23;
+static int bpi16_rs1 = 24;
+
 static bool test_gold_image_compatible(const std::vector<uint8_t>&vec);
 
 static void spi_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, size_t sector);
@@ -148,6 +154,18 @@ int main(int argc, char*argv[])
 
 	    } else if (strcmp(argv[optarg],"--spi") == 0) {
 		  spi_gen = true;
+
+	    } else if (strncmp(argv[optarg],"--bpi16-rs0=",12) == 0) {
+		  bpi16_rs0 = strtoul(argv[optarg]+12, 0, 10);
+
+	    } else if (strncmp(argv[optarg],"--bpi16-rs1=",12) == 0) {
+		  bpi16_rs1 = strtoul(argv[optarg]+12, 0, 10);
+
+	    } else if (strcmp(argv[optarg],"--no-bpi16-rs0") == 0) {
+		  bpi16_rs0 = 0;
+
+	    } else if (strcmp(argv[optarg],"--no-bpi16-rs1") == 0) {
+		  bpi16_rs1 = 0;
 
 	    } else if (strncmp(argv[optarg],"--multiboot=",12) == 0) {
 		  multiboot_offset = strtoul(argv[optarg]+12, 0, 0);
@@ -439,9 +457,9 @@ static void bpi16_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, s
 	// A[24]. So transfer those address bits RS[] part of WBSTAR.
 	// (Actually, the mapping may be more complicated then that in
 	// the hardware, but this is what we do logically.)
-      if (mb_offset & 0x00800000)
+      if ((bpi16_rs0!=0) && (mb_offset & (1 << bpi16_rs0)))
 	    WBSTAR |= 0x40000000; /* RS[0]*/
-      if (mb_offset & 0x01000000)
+      if ((bpi16_rs1!=0) && (mb_offset & (1 << bpi16_rs1)))
 	    WBSTAR |= 0x80000000; /* RS[1] */
 
       WBSTAR |= (mb_offset & 0x00ffffff) / 2;
