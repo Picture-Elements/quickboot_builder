@@ -428,18 +428,21 @@ static void bpi16_quickboot_header(std::vector<uint8_t>&dst, size_t mb_offset, s
       fprintf(stdout, "Quickboot BPI header\n");
       fprintf(stdout, "Critical Switch word is 00:00:00:bb 11:22:00:44 aa:99:44:66 at 0x%08zx (page 0)\n", sector-12);
 
-	// If we got the multiboot address from the command line
-	// instead of from the gold file, then generate a new WBSTAR value.
       uint32_t WBSTAR = 0;
 	// In the quickboot header for a BPI16 device, we use RS[0]
 	// instead of any other multiboot bits.
 
-	// RS[0] connects to A[23] on the flash. So transfer that
-	// address bit to the RS[] part of WBSTAR
+	// Enable the RS pins.
+      WBSTAR |= 0x20000000; /* RS_TS_B */
+
+	// RS[0] connects to A[23] on the flash, and RS[1] to
+	// A[24]. So transfer those address bits RS[] part of WBSTAR.
+	// (Actually, the mapping may be more complicated then that in
+	// the hardware, but this is what we do logically.)
       if (mb_offset & 0x00800000)
-	    WBSTAR |= 0x60000000; /* RS[0],RS_TS_B */
-      else
-	    WBSTAR |= 0x20000000; /* RS_TS_B */
+	    WBSTAR |= 0x40000000; /* RS[0]*/
+      if (mb_offset & 0x01000000)
+	    WBSTAR |= 0x80000000; /* RS[1] */
 
       WBSTAR |= (mb_offset & 0x00ffffff) / 2;
 
