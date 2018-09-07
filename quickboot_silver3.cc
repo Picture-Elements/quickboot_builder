@@ -47,8 +47,8 @@ int main(int argc, char*argv[])
 	    if (strncmp(argv[optarg], "--output=",9) == 0) {
 		  path_out = argv[optarg] + 9;
 
-	    } else if (strncmp(argv[optarg], "--raw=",5) == 0) {
-		  path_raw = argv[optarg] + 5;
+	    } else if (strncmp(argv[optarg], "--raw=",6) == 0) {
+		  path_raw = argv[optarg] + 6;
 
 	    } else {
 		  fprintf(stderr, "Unknown flag: %s\n", argv[optarg]);
