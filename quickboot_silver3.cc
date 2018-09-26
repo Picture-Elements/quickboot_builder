@@ -84,7 +84,7 @@ int main(int argc, char*argv[])
       fd_raw = 0;
 
 	// Edit the silver stream BSPI register value.
-      uint32_t old_BSPI = replace_register_write(vec_raw, 0x14, 0x0c);
+      uint32_t old_BSPI = replace_register_write(vec_raw, 0x1f, 0x0c);
       fprintf(stdout, "BSPI (silver): 0x00000c (was: 0x%08x)\n", old_BSPI);
 
       FILE*fd_out = fopen(path_out, "wb");

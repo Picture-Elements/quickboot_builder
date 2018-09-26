@@ -88,7 +88,7 @@ int main(int argc, char*argv[])
       fprintf(stdout, "AXSS: 0x474f4c44 (was: 0x%08x)\n", AXSS);
 
 	// Edit the silver stream BSPI register value.
-      uint32_t BSPI = replace_register_write(vec_raw, 0x14, 0x0c);
+      uint32_t BSPI = replace_register_write(vec_raw, 0x1f, 0x0c);
       fprintf(stdout, "BSPI: 0x00000c (was: 0x%08x)\n", BSPI);
 
 	/* Gold images have the CRC disabled. */
