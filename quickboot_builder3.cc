@@ -363,8 +363,20 @@ static void make_design(vector<uint8_t>&vec_out, int design_pos, const vector<ui
 	/* Make a gold image from the silver input. */
       vector<uint8_t> vec_gold = vec_silver;
 
-      uint32_t AXSS = replace_register_write(vec_gold, 0x0d, 0x474f4c44);
-      fprintf(stdout, "... AXSS (gold): 0x474f4c44 (was: 0x%08x)\n", AXSS);
+      const uint32_t AXSS_old = replace_register_write(vec_gold, 0x0d, 0x474f4c44);
+      if (AXSS_old == 0) {
+	    fprintf(stdout, "WARNING        : AXSS is not present in source stream.\n");
+
+      } else if (AXSS_old == 0x53494c56) { // SILV
+	      // Replace SILV with GOLD
+	    fprintf(stdout, "... AXSS (gold): 0x474f4c44 (was: 0x%08x)\n", AXSS_old);
+
+      } else if ((AXSS_old & 0xff000000) == 0x53000000) { // S...
+	      // Replace a leading S with G
+	    uint32_t AXSS_target = (AXSS_old & 0x00ffffff) | 0x47000000;
+	    replace_register_write(vec_gold, 0x0d, AXSS_target);
+	    fprintf(stdout, "... AXSS (gold): 0x%08x (was: 0x%08x)\n", AXSS_target, AXSS_old);
+      }
 
       uint32_t old_BSPI = replace_register_write(vec_gold, 0x1f, BSPI);
       fprintf(stdout, "... BSPI (gold): 0x%08x (was: 0x%08x)\n", BSPI, old_BSPI);
