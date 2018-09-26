@@ -48,6 +48,13 @@
  *                 image for SPI flash devices or BPI devices. Exactly
  *                 one of these flags must be given.
  *
+ *   --bpi16-rs0=<N> (default: 23)
+ *   --bpi16-rs1=<N> (default: 24)
+ *   --no-bpi16-rs0
+ *   --no-bpi16-rs1
+ *                 Specify how to map multiboot address bits to
+ *                 RS[1:0] bits in WBSTAR.
+ *
  *   --multiboot=<number>
  *                 Specify the multiboot offset. If this flag is not
  *                 present, the program will try to extract it from
