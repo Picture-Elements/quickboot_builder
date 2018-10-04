@@ -76,7 +76,7 @@ bool test_silver_image_compatible(const std::vector<uint8_t>&vec)
 
 
       uint32_t AXSS = extract_register_write(vec, 0x0d);
-      if (AXSS != 0x53494c56) {
+      if (AXSS != 0x53494c56 && ((AXSS&0xff000000) != 0x53000000)) {
 	    fprintf(stderr, "Found AXSS=0x%08x\n (s/b 0x53494c56)\n", AXSS);
 	    return false;
       }
