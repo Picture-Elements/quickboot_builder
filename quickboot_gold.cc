@@ -124,10 +124,11 @@ int main(int argc, char*argv[])
 	    uint32_t COR0 = replace_register_write(vec_silver, 0x09, 0x062055dc);
 	    fprintf(stdout, "COR0 (gold): 0x062055dc (was: 0x%08x)\n", COR0);
 
-	    uint32_t COR1 = replace_register_write(vec_silver, 0x0e, 0x0000000a);
-	    fprintf(stdout, "COR1 (gold): 0x0000000a (was: 0x%08x)\n", COR1);
+	    uint32_t COR1 = replace_register_write(vec_silver, 0x0e, 0x0000000e);
+	    fprintf(stdout, "COR1 (gold): 0x0000000e (was: 0x%08x)\n", COR1);
       }
 
+      fprintf(stdout, "Disable CRC in gold stream (Replace CRC with Reset CRC)\n");
       while (disable_stream_crc(vec_silver)) {
 	/* repeat */
       }
