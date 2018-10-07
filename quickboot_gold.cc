@@ -39,6 +39,7 @@ int main(int argc, char*argv[])
 {
       const char*path_out = 0;
       const char*path_silver = 0;
+      const char*id_text = 0;
 
       bool bpi16_gen = false;
       bool spi_gen = false;
@@ -55,6 +56,9 @@ int main(int argc, char*argv[])
 
 	    } else if (strcmp(argv[optarg],"--spi") == 0) {
 		  spi_gen = true;
+
+	    } else if (strncmp(argv[optarg],"--id=",5) == 0) {
+		  id_text = argv[optarg] + 5;
 
 	    } else {
 		  fprintf(stderr, "Unknown flag: %s\n", argv[optarg]);
@@ -102,6 +106,11 @@ int main(int argc, char*argv[])
       if (! test_silver_image_compatible(vec_silver)) {
 	    fprintf(stderr, "Silver file %s not compatible with Quickboot assembly.\n", path_silver);
 	    return -1;
+      }
+
+      if (id_text) {
+	    fprintf(stdout, "Writing id string \"%s\" into prefix\n", id_text);
+	    memcpy(&vec_silver[0], id_text, strlen(id_text)+1);
       }
 
       const uint32_t AXSS_old = replace_register_write(vec_silver, 0x0d, 0x474f4c44);
