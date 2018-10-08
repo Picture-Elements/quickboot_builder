@@ -44,6 +44,22 @@ static const char*register_name(uint8_t address)
       return name_table[address];
 }
 
+static const char*command_name(uint32_t command)
+{
+      static const char*name_table[32] = {
+	    "NULL",    "WCFG",    "MFW",      "LFRM",     // 00000 - 00011
+	    "RCFG",    "START",   "RCAP",     "RCRC",     // 00100 - 00111
+	    "AGHIGH",  "SWITCH",  "GRESTORE", "SHUTDOWN", // 01000 - 01011
+	    "GCAPTURE","DESYNC",  "0x0e",     "IPROG",    // 01100 - 01111
+	    "CRCC",    "LTIMER",  "BSPI_READ","FALL_EDGE",// 10000 - 10011
+	    "0x14",    "0x15",    "0x16",     "0x17",     // 10100 - 10111
+	    "0x18",    "0x19",    "0x1a",     "0x1b",     // 11000 - 11011
+	    "0x1c",    "0x1d",    "0x1e",     "0x1f",     // 11100 - 11111
+      };
+      command &= 0x1f;
+      return name_table[command];
+}
+
 static void process_type1(const vector<uint8_t>&vec, size_t&ptr)
 {
       assert(ptr+4 <= vec.size());
@@ -90,6 +106,9 @@ static void process_type1(const vector<uint8_t>&vec, size_t&ptr)
 		  val <<= 8;
 		  val += vec[ptr+4+4*idx+3];
 		  fprintf(stdout, " %08x", val);
+		  if (address == 0x04 && idx == 0) {
+			fprintf(stdout, " (%s)", command_name(val));
+		  }
 	    }
 	    fprintf(stdout, "\n");
 	    break;
