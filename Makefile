@@ -5,7 +5,7 @@
 CXX = g++ -std=c++11
 CXXFLAGS = -O -g -Wall
 
-all: quickboot_builder quickboot_gold quickboot_builder3 quickboot_silver3 quickboot_gold3
+all: quickboot_builder quickboot_gold quickboot_builder3 quickboot_silver3 quickboot_gold3 bitstream_debug
 
 clean:
 	rm -f *.o *~
@@ -35,6 +35,12 @@ G3 = quickboot_gold3.o read_bit_file.o replace_register_write.o disable_stream_c
 quickboot_gold3: $(G3)
 	$(CXX) $(CXXFLAGS) -o quickboot_gold3 $(G3)
 
+BD = bitstream_debug.o read_bit_file.o
+
+bitstream_debug: $(BD)
+	$(CXX) $(CXXFLAGS) -o bitstream_debug $(BD)
+
+
 quickboot_builder.o: quickboot_builder.cc read_bit_file.h extract_register_write.h replace_register_write.h test_image_compat.h disable_stream_crc.h write_to_mcs_file.h
 
 quickboot_builder3.o: quickboot_builder3.cc disable_stream_crc.h read_bit_file.h replace_register_write.h write_to_mcs_file.h
@@ -44,6 +50,8 @@ quickboot_gold.o: quickboot_gold.cc read_bit_file.h replace_register_write.h tes
 quickboot_silver3.o: quickboot_silver3.cc read_bit_file.h replace_register_write.h
 
 quickboot_gold3.o: quickboot_gold3.cc read_bit_file.h replace_register_write.h disable_stream_crc.h
+
+bitstream_debug.o: bitstream_debug.cc read_bit_file.h
 
 read_bit_file.o:     read_bit_file.cc read_bit_file.h
 extract_register_write.o: extract_register_write.cc extract_register_write.h

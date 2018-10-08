@@ -4,6 +4,7 @@
 *.obj
 *.mcs
 *.exe
+bitstream_debug
 quickboot_builder
 quickboot_gold
 quickboot_builder3
