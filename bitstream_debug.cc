@@ -47,15 +47,34 @@ static const char*register_name(uint8_t address)
 static void process_type1(const vector<uint8_t>&vec, size_t&ptr)
 {
       assert(ptr+4 <= vec.size());
-      size_t word_count = vec[ptr+3] + ((vec[ptr+2] & 0x7) << 8);
-      uint8_t address   = ((vec[ptr+2] >> 6)&0x7) + ((vec[ptr+1] & 0x3) << 3);
-      uint8_t opcode    = (vec[ptr+0] >> 3) & 0x3;
+      uint32_t command = vec[ptr+0];
+      command <<= 8;
+      command += vec[ptr+1];
+      command <<= 8;
+      command += vec[ptr+2];
+      command <<= 8;
+      command += vec[ptr+3];
+
+      size_t word_count = (command >>  0) & 0x000007ff;
+      uint8_t address   = (command >> 13) & 0x1f;
+      uint8_t opcode    = (command >> 27) & 0x3;
 
       assert(ptr+4+4*word_count <= vec.size());
 
       switch (opcode) {
 	  case 0: /* NO-OP */
-	    fprintf(stdout, "NOP            (address=0x%x, word_count=%zu)\n", address, word_count);
+	    fprintf(stdout, "NOP            (word_count=%zu):", word_count);
+	    for (size_t idx = 0 ; idx < word_count ; idx += 1) {
+		  uint32_t val = vec[ptr+4+4*idx+0];
+		  val <<= 8;
+		  val += vec[ptr+4+4*idx+1];
+		  val <<= 8;
+		  val += vec[ptr+4+4*idx+2];
+		  val <<= 8;
+		  val += vec[ptr+4+4*idx+3];
+		  fprintf(stdout, " %08x", val);
+	    }
+	    fprintf(stdout, "\n");
 	    break;
 	  case 1: /* Read */
 	    fprintf(stdout, "Read  %-8s (word_count=%zu)\n", register_name(address), word_count);
@@ -73,6 +92,9 @@ static void process_type1(const vector<uint8_t>&vec, size_t&ptr)
 		  fprintf(stdout, " %08x", val);
 	    }
 	    fprintf(stdout, "\n");
+	    break;
+	  case 3: /* Reserved Opcode */
+	    fprintf(stdout, "RESERVED       (address=0x%x, word_count=%zu)\n", address, word_count);
 	    break;
 	  default:
 	    assert(0);
